@@ -75,7 +75,7 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		log.Info("Secret not found, generating new certificate", "SecretName", secretName)
 
 		// Generate TLS certificate
-		cert, key, err := generateTLSCertificate(cert.Spec.DNS, cert.Spec.Validity)
+		cert, key, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
 		if err != nil {
 			log.Error(err, "failed to generate TLS certificate")
 			return ctrl.Result{}, err
@@ -83,10 +83,10 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 		// Create a new secret
 		err = createSecret(req, r, ctx, secretName, key, cert)
-		if err!= nil {
-            log.Error(err, "failed to create secret")
-            return ctrl.Result{}, err
-        }
+		if err != nil {
+			log.Error(err, "failed to create secret")
+			return ctrl.Result{}, err
+		}
 
 		log.Info("Successfully created secret", "SecretName", secretName)
 		return ctrl.Result{}, nil
@@ -107,10 +107,10 @@ func generateTLSCertificate(dns string, validity string) ([]byte, []byte, error)
 	}
 
 	validityInt, err := extractDaysOfValidity(validity)
-	if err!= nil {
-        return nil, nil, err
-    }
-	
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// Create a self-signed certificate
 	template := x509.Certificate{
 		SerialNumber:          big.NewInt(time.Now().UnixNano()),
@@ -138,9 +138,9 @@ func generateTLSCertificate(dns string, validity string) ([]byte, []byte, error)
 func extractDaysOfValidity(val string) (int, error) {
 	val = strings.TrimSuffix(val, "d")
 	days, err := strconv.Atoi(val)
-	if err!= nil {
-        return 0, err
-    }
+	if err != nil {
+		return 0, err
+	}
 	return days, nil
 }
 
