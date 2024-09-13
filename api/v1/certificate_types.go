@@ -20,16 +20,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // CertificateSpec defines the desired state of Certificate
 type CertificateSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// DNS specifies the DNS name for the certificate
+	DNS string `json:"dns,omitempty"`
+	// Validity specifies for how many days the certificate is valid	
+	Validity string `json:"validity,omitempty"`
+	// SecretRef refers to the secret in which the certificate is stored
+	SecretRef SecretReference `json:"secretRef,omitempty"`
+}
 
-	// Foo is an example field of Certificate. Edit certificate_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+type SecretReference struct {
+	// Name of the secret
+	Name string `json:"name"`
 }
 
 // CertificateStatus defines the observed state of Certificate
