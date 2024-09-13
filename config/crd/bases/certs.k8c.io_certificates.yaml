@@ -39,7 +39,7 @@ spec:
           spec:
             description: CertificateSpec defines the desired state of Certificate
             properties:
-              dns:
+              dnsName:
                 description: DNS specifies the DNS name for the certificate
                 type: string
               secretRef:
