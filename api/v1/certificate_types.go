@@ -24,7 +24,7 @@ import (
 type CertificateSpec struct {
 	// DNS specifies the DNS name for the certificate
 	DNS string `json:"dns,omitempty"`
-	// Validity specifies for how many days the certificate is valid	
+	// Validity specifies for how many days the certificate is valid
 	Validity string `json:"validity,omitempty"`
 	// SecretRef refers to the secret in which the certificate is stored
 	SecretRef SecretReference `json:"secretRef,omitempty"`

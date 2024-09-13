@@ -6,7 +6,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: certificate-sample
 spec:
-  dnsName: example.k8c.io
-  validity: 360d
+  dns: example.k8c.io
+  validity: 60d
   secretRef:
-    name: my-certificate-secret
+    name: cert
