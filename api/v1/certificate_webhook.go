@@ -99,7 +99,7 @@ func (r *Certificate) ValidateCreate() (admission.Warnings, error) {
 func (r *Certificate) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	certificatelog.Info("validate update", "name", r.Name)
 
-	// TODO(user): fill in your validation logic upon object update.
+	r.ValidateCreate()
 	return nil, nil
 }
 
