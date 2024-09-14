@@ -2,7 +2,7 @@ apiVersion: certs.k8c.io/v1
 kind: Certificate
 metadata:
   labels:
-    app.kubernetes.io/name: centaur
+    app.kubernetes.io/name: certaur
     app.kubernetes.io/managed-by: kustomize
   name: certificate-sample
 spec:
