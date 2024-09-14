@@ -43,6 +43,8 @@ jobs:
       - name: Install gosec
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
+          export PATH=$(go env GOPATH)/bin:$PATH
+          gosec version
 
       - name: Run gosec security check
         run: gosec ./...
