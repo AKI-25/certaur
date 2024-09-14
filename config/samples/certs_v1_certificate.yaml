@@ -7,6 +7,6 @@ metadata:
   name: certificate-sample
 spec:
   dnsName: example.k8c.io
-  validity: 60d
+  validity: 30d
   secretRef:
-    name: cert
+    name: sample
