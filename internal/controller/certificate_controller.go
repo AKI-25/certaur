@@ -74,15 +74,8 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	if apierrors.IsNotFound(err) {
 		log.Info("Secret not found, generating new certificate", "SecretName", secretName)
 
-		// Generate TLS certificate
-		cert, key, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
-		if err != nil {
-			log.Error(err, "failed to generate TLS certificate")
-			return ctrl.Result{}, err
-		}
-
 		// Create a new secret
-		err = createSecret(req, r, ctx, secretName, key, cert)
+		err = createSecret(req, r, ctx, secretName)
 		if err != nil {
 			log.Error(err, "failed to create secret")
 			return ctrl.Result{}, err
@@ -95,7 +88,31 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 
+	// Generate TLS certificate
+	certPEM, keyPEM, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
+	if err != nil {
+		log.Error(err, "failed to generate TLS certificate")
+		return ctrl.Result{}, err
+	}
+	
+	// if the secret is available
+	// Update the secret with the latest certificate and key
+    err = updateSecret(r, ctx, secret, keyPEM, certPEM)
+    if err!= nil {
+        log.Error(err, "failed to update secret")
+        return ctrl.Result{}, err
+    }
+
 	return ctrl.Result{}, nil
+}
+
+// update already available secret 
+
+func updateSecret(r *CertificateReconciler, ctx context.Context, secret *corev1.Secret, key, cert []byte) error {
+	secret.Data["tls.crt"] = cert
+    secret.Data["tls.key"] = key
+
+    return r.Client.Update(ctx, secret)
 }
 
 // generate a TLS certificate and key based on the provided DNS and validity
@@ -145,15 +162,11 @@ func extractDaysOfValidity(val string) (int, error) {
 }
 
 // create a secret for certificate and key storage
-func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, secretName string, key, cert []byte) error {
+func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, secretName string) error {
 	secret := &corev1.Secret{
 		ObjectMeta: ctrl.ObjectMeta{
 			Name:      secretName,
 			Namespace: req.Namespace,
-		},
-		Data: map[string][]byte{
-			"tls.crt": cert,
-			"tls.key": key,
 		},
 		Type: corev1.SecretTypeTLS,
 	}
