@@ -79,4 +79,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: operator-installer
-          path: ./dist/*
+          path: ./dist/certaur-*.yaml
