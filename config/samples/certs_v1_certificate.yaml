@@ -2,11 +2,11 @@ apiVersion: certs.k8c.io/v1
 kind: Certificate
 metadata:
   labels:
-    app.kubernetes.io/name: certaur
+    app.kubernetes.io/name: centaur
     app.kubernetes.io/managed-by: kustomize
   name: certificate-sample
 spec:
   dnsName: example.k8c.io
-  validity: 30d
+  validity: 360d
   secretRef:
-    name: sample
+    name: my-certificate-secret

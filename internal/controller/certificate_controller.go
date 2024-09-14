@@ -22,7 +22,6 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -36,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	certsv1 "github.com/AKI-25/certaur/api/v1"
 )
@@ -173,8 +173,8 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 			},
 		},
 		Data: map[string][]byte{
-            "tls.crt": {},
-            "tls.key": {},
+			"tls.crt": {},
+			"tls.key": {},
 		},
 		Type: corev1.SecretTypeTLS,
 	}
@@ -187,8 +187,10 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certsv1.Certificate{}).
 		Owns(&corev1.Secret{}).
+		WithEventFilter(pred).
 		Complete(r)
 }
