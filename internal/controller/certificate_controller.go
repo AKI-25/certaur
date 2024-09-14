@@ -94,25 +94,25 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		log.Error(err, "failed to generate TLS certificate")
 		return ctrl.Result{}, err
 	}
-	
+
 	// if the secret is available
 	// Update the secret with the latest certificate and key
-    err = updateSecret(r, ctx, secret, keyPEM, certPEM)
-    if err!= nil {
-        log.Error(err, "failed to update secret")
-        return ctrl.Result{}, err
-    }
+	err = updateSecret(r, ctx, secret, keyPEM, certPEM)
+	if err != nil {
+		log.Error(err, "failed to update secret")
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
 
-// update already available secret 
+// update already available secret
 
 func updateSecret(r *CertificateReconciler, ctx context.Context, secret *corev1.Secret, key, cert []byte) error {
 	secret.Data["tls.crt"] = cert
-    secret.Data["tls.key"] = key
+	secret.Data["tls.key"] = key
 
-    return r.Client.Update(ctx, secret)
+	return r.Client.Update(ctx, secret)
 }
 
 // generate a TLS certificate and key based on the provided DNS and validity
