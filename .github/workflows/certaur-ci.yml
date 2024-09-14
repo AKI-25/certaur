@@ -26,7 +26,7 @@ jobs:
 
       - name: Run golangci-lint
         run: |
-          golangci-lint run --timeout=5m ./...
+          golangci-lint run ./...
 
   security-check:
     name: Security Check (gosec)
