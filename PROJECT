@@ -5,7 +5,7 @@
 domain: k8c.io
 layout:
 - go.kubebuilder.io/v4
-projectName: centaur
+projectName: certaur
 repo: github.com/AKI-25/certaur
 resources:
 - api:
