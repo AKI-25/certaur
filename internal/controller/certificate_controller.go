@@ -22,6 +22,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -52,6 +54,8 @@ type CertificateReconciler struct {
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.Log
+
+	l.Info(req.String())
 
 	// Fetch the Certificate instance
 	var cert certsv1.Certificate
@@ -87,6 +91,13 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else if err != nil {
 		l.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
+	} 
+
+	// check if the secret is owned by the Certificate
+
+	if !isOwnerReference(&cert, secret) {
+		l.Error(errors.New("secret error"),"Referenced secret is not owned by the Certificate")
+		return ctrl.Result{}, nil
 	}
 
 	// Generate TLS certificate
@@ -193,4 +204,15 @@ func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		WithEventFilter(pred).
 		Complete(r)
+}
+
+func isOwnerReference(cert *certsv1.Certificate, secret *corev1.Secret) bool {
+	for _, owner := range secret.OwnerReferences {
+		fmt.Println("Owner", owner)
+		fmt.Println("Secret", secret.OwnerReferences[0].Name)
+        if owner.APIVersion == certsv1.GroupVersion.String() && owner.Kind == "Certificate" && owner.Name == cert.Name {
+            return true
+        }
+    }
+    return false
 }
