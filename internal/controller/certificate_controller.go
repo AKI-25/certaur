@@ -23,7 +23,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -196,6 +195,8 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 	return nil
 }
 
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	pred := predicate.GenerationChangedPredicate{}
@@ -208,8 +209,6 @@ func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func isOwnerReference(cert *certsv1.Certificate, secret *corev1.Secret) bool {
 	for _, owner := range secret.OwnerReferences {
-		fmt.Println("Owner", owner)
-		fmt.Println("Secret", secret.OwnerReferences[0].Name)
 		if owner.APIVersion == certsv1.GroupVersion.String() && owner.Kind == "Certificate" && owner.Name == cert.Name {
 			return true
 		}
