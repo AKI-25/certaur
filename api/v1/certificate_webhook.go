@@ -127,7 +127,7 @@ func (v *validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	if len(allErrs) == 0 {
 		return nil, nil
 	}
-	return allErrs, nil
+	return allErrs, errors.New("failed to create resource")
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
