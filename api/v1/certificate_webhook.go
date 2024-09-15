@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 
+	// v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -37,8 +38,9 @@ import (
 
 // Context for making API requests
 
-type CertificateClient struct {
+type Validator struct {
 	client.Client
+	Scheme *runtime.Scheme
 }
 
 var (
@@ -51,8 +53,16 @@ var certificatelog = logf.Log.WithName("certificate-resource")
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func (r *Certificate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+
+	// instanciate a Validator
+	certificateValidator := &Validator{
+		Client: mgr.GetClient(),
+	}
+
+	// register the webhook with the manager.
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
+		WithValidator(certificateValidator).
 		Complete()
 }
 
@@ -82,21 +92,29 @@ func (r *Certificate) defaultSecretName() {
 
 // +kubebuilder:webhook:path=/validate-certs-k8c-io-v1-certificate,mutating=false,failurePolicy=fail,sideEffects=None,groups=certs.k8c.io,resources=certificates,verbs=create;update,versions=v1,name=vcertificate.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Certificate{}
+// var _ webhook.Validator = &Certificate{}
+
+// implement a custom validator
+
+var _ admission.CustomValidator = &Validator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Certificate) ValidateCreate() (admission.Warnings, error) {
-	certificatelog.Info("validate create", "name", r.Name)
-
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs []string
 
-	if err := r.validateDNSName(); err != nil {
+	cert, ok := obj.(*Certificate)
+	if !ok {
+		allErrs = append(allErrs, fmt.Sprintf("unexpected type: %T", obj))
+    }
+	certificatelog.Info("validate create", "name", cert.Name)
+	
+	if err := cert.validateDNSName(); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
-	if err := r.validateValidity(); err != nil {
+	if err := cert.validateValidity(); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
-	if err := r.validateSecretName(); err!= nil {
+	if err := cert.validateSecretName(v.Client); err!= nil {
         allErrs = append(allErrs, err.Error())
     }
 
@@ -107,35 +125,42 @@ func (r *Certificate) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Certificate) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
-	certificatelog.Info("validate update", "name", r.Name)
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	cert, ok := newObj.(*Certificate)
+	if !ok {
+		return []string{
+			fmt.Sprintf("unexpected type: %T", newObj),
+		}, nil
+    }
+	
+	certificatelog.Info("validate update", "name", cert.Name)
 
-	r.ValidateCreate()
+	v.ValidateCreate(ctx, newObj)
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Certificate) ValidateDelete() (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func (r *Certificate) validateDNSName() error {
-	match, _ := regexp.MatchString(dnsNameRegex, r.Spec.DnsName)
+func (c *Certificate) validateDNSName() error {
+	match, _ := regexp.MatchString(dnsNameRegex, c.Spec.DnsName)
 	if !match {
-		return field.Invalid(field.NewPath("spec").Child("dnsName"), r.Spec.DnsName, "invalid DNS name")
+		return field.Invalid(field.NewPath("spec").Child("dnsName"), c.Spec.DnsName, "invalid DNS name")
 	}
 	return nil
 }
 
 // checks that validity is in the correct format and range.
-func (r *Certificate) validateValidity() error {
-	match, _ := regexp.MatchString(validityRegex, r.Spec.Validity)
+func (c *Certificate) validateValidity() error {
+	match, _ := regexp.MatchString(validityRegex, c.Spec.Validity)
 	if !match {
 		return errors.New("invalid format, must be a positive integer followed by 'd'")
 	}
 
 	// Extract the integer part of validity and check the range (0 - 1825)
-	daysStr := strings.TrimSuffix(r.Spec.Validity, "d")
+	daysStr := strings.TrimSuffix(c.Spec.Validity, "d")
 	days, err := strconv.Atoi(daysStr)
 	if err != nil || days < 1 || days > 1825 {
 		return errors.New("validity must be between 1 and 1825 days")
@@ -144,15 +169,13 @@ func (r *Certificate) validateValidity() error {
 	return nil
 }
 
-func (r *Certificate) validateSecretName() error {
-	// Create a client to check if the secret already exists.
-	c := CertificateClient{}
+func (c *Certificate) validateSecretName(client client.Client) error {
 	ctx := context.Background()
 
 	// check if the secret already exists
 	secret := &corev1.Secret{}
-	secretNamespacedName := types.NamespacedName{Name: r.Spec.SecretRef.Name, Namespace: r.Namespace}
-	err := c.Client.Get(ctx, secretNamespacedName, secret)
+	secretNamespacedName := types.NamespacedName{Name: c.Spec.SecretRef.Name, Namespace: c.Namespace}
+	err := client.Get(ctx, secretNamespacedName, secret)
 	if err == nil {
         return errors.New("secret already exists")
     }
