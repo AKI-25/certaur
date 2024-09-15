@@ -24,7 +24,6 @@ import (
 	"strconv"
 	"strings"
 
-	// v1 "k8s.io/api/admission/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -64,6 +63,7 @@ func (r *Certificate) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		WithValidator(certificateValidator).
+		WithDefaulter(certificateValidator).
 		Complete()
 }
 

@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-VERSION = 0.2.0
+VERSION = 0.3.0
 REPO = abdelkefiismail
 CONTROLLER_NAME = certaur
 IMG ?= $(REPO)/$(CONTROLLER_NAME)
