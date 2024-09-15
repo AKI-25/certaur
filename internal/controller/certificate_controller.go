@@ -91,12 +91,12 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else if err != nil {
 		l.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
-	} 
+	}
 
 	// check if the secret is owned by the Certificate
 
 	if !isOwnerReference(&cert, secret) {
-		l.Error(errors.New("secret error"),"Referenced secret is not owned by the Certificate")
+		l.Error(errors.New("secret error"), "Referenced secret is not owned by the Certificate")
 		return ctrl.Result{}, nil
 	}
 
@@ -210,9 +210,9 @@ func isOwnerReference(cert *certsv1.Certificate, secret *corev1.Secret) bool {
 	for _, owner := range secret.OwnerReferences {
 		fmt.Println("Owner", owner)
 		fmt.Println("Secret", secret.OwnerReferences[0].Name)
-        if owner.APIVersion == certsv1.GroupVersion.String() && owner.Kind == "Certificate" && owner.Name == cert.Name {
-            return true
-        }
-    }
-    return false
+		if owner.APIVersion == certsv1.GroupVersion.String() && owner.Kind == "Certificate" && owner.Name == cert.Name {
+			return true
+		}
+	}
+	return false
 }
