@@ -22,18 +22,22 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	certsv1 "github.com/AKI-25/certaur/api/v1"
 )
@@ -41,7 +45,6 @@ import (
 // CertificateReconciler reconciles a Certificate object
 type CertificateReconciler struct {
 	client.Client
-	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
@@ -50,16 +53,18 @@ type CertificateReconciler struct {
 // +kubebuilder:rbac:groups=certs.k8c.io,resources=certificates/finalizers,verbs=update
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := r.Log.WithValues("certificate", req.NamespacedName)
+	l := log.Log
+
+	l.Info(req.String())
 
 	// Fetch the Certificate instance
 	var cert certsv1.Certificate
 	if err := r.Get(ctx, req.NamespacedName, &cert); err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Info("Certificate resource not found. Ignoring since object must be deleted.")
+			l.Info("Certificate resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		log.Error(err, "Failed to get Certificate")
+		l.Error(err, "Failed to get Certificate")
 		return ctrl.Result{}, err
 	}
 
@@ -72,26 +77,33 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
-		log.Info("Secret not found, generating new certificate", "SecretName", secretName)
+		l.Info("Secret not found, generating new certificate", "SecretName", secretName)
 
 		// Create a new secret
-		err = createSecret(req, r, ctx, secretName)
+		err = createSecret(req, r, ctx, &cert, secretName)
 		if err != nil {
-			log.Error(err, "failed to create secret")
+			l.Error(err, "failed to create secret")
 			return ctrl.Result{}, err
 		}
 
-		log.Info("Successfully created secret", "SecretName", secretName)
+		l.Info("Successfully created secret", "SecretName", secretName)
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		log.Error(err, "unable to fetch Secret")
+		l.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
+	} 
+
+	// check if the secret is owned by the Certificate
+
+	if !isOwnerReference(&cert, secret) {
+		l.Error(errors.New("secret error"),"Referenced secret is not owned by the Certificate")
+		return ctrl.Result{}, nil
 	}
 
 	// Generate TLS certificate
 	certPEM, keyPEM, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
 	if err != nil {
-		log.Error(err, "failed to generate TLS certificate")
+		l.Error(err, "failed to generate TLS certificate")
 		return ctrl.Result{}, err
 	}
 
@@ -99,7 +111,7 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// Update the secret with the latest certificate and key
 	err = updateSecret(r, ctx, secret, keyPEM, certPEM)
 	if err != nil {
-		log.Error(err, "failed to update secret")
+		l.Error(err, "failed to update secret")
 		return ctrl.Result{}, err
 	}
 
@@ -162,11 +174,18 @@ func extractDaysOfValidity(val string) (int, error) {
 }
 
 // create a secret for certificate and key storage
-func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, secretName string) error {
+func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, cert *certsv1.Certificate, secretName string) error {
 	secret := &corev1.Secret{
 		ObjectMeta: ctrl.ObjectMeta{
 			Name:      secretName,
 			Namespace: req.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(cert, certsv1.GroupVersion.WithKind("Certificate")),
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": {},
+			"tls.key": {},
 		},
 		Type: corev1.SecretTypeTLS,
 	}
@@ -179,7 +198,21 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certsv1.Certificate{}).
+		Owns(&corev1.Secret{}).
+		WithEventFilter(pred).
 		Complete(r)
+}
+
+func isOwnerReference(cert *certsv1.Certificate, secret *corev1.Secret) bool {
+	for _, owner := range secret.OwnerReferences {
+		fmt.Println("Owner", owner)
+		fmt.Println("Secret", secret.OwnerReferences[0].Name)
+        if owner.APIVersion == certsv1.GroupVersion.String() && owner.Kind == "Certificate" && owner.Name == cert.Name {
+            return true
+        }
+    }
+    return false
 }

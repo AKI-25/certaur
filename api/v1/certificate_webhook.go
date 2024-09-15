@@ -17,19 +17,29 @@ limitations under the License.
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
+
+// Context for making API requests
+
+type CertificateClient struct {
+	client.Client
+}
 
 var (
 	dnsNameRegex  = `^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,6}$`
@@ -86,6 +96,9 @@ func (r *Certificate) ValidateCreate() (admission.Warnings, error) {
 	if err := r.validateValidity(); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
+	if err := r.validateSecretName(); err!= nil {
+        allErrs = append(allErrs, err.Error())
+    }
 
 	if len(allErrs) == 0 {
 		return nil, nil
@@ -128,5 +141,20 @@ func (r *Certificate) validateValidity() error {
 		return errors.New("validity must be between 1 and 1825 days")
 	}
 
+	return nil
+}
+
+func (r *Certificate) validateSecretName() error {
+	// Create a client to check if the secret already exists.
+	c := CertificateClient{}
+	ctx := context.Background()
+
+	// check if the secret already exists
+	secret := &corev1.Secret{}
+	secretNamespacedName := types.NamespacedName{Name: r.Spec.SecretRef.Name, Namespace: r.Namespace}
+	err := c.Client.Get(ctx, secretNamespacedName, secret)
+	if err == nil {
+        return errors.New("secret already exists")
+    }
 	return nil
 }
