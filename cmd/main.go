@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	// "sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	certsv1 "github.com/AKI-25/certaur/api/v1"
 	"github.com/AKI-25/certaur/internal/controller"
@@ -92,9 +92,9 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
-	})
+	// webhookServer := webhook.NewServer(webhook.Options{
+	// 	TLSOpts: tlsOpts,
+	// })
 
 	// Metrics endpoint is enabled in 'config/default/kustomization.yaml'. The Metrics options configure the server.
 	// More info:
@@ -121,9 +121,9 @@ func main() {
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		Metrics:                metricsServerOptions,
-		WebhookServer:          webhookServer,
+		Scheme:  scheme,
+		Metrics: metricsServerOptions,
+		// WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "e49b463c.k8c.io",
@@ -151,12 +151,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
-	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&certsv1.Certificate{}).SetupWebhookWithManager(mgr); err != nil {
-			setupLog.Error(err, "unable to create webhook", "webhook", "Certificate")
-			os.Exit(1)
-		}
-	}
+	// if os.Getenv("ENABLE_WEBHOOKS") != "false" {
+	// 	if err = (&certsv1.Certificate{}).SetupWebhookWithManager(mgr); err != nil {
+	// 		setupLog.Error(err, "unable to create webhook", "webhook", "Certificate")
+	// 		os.Exit(1)
+	// 	}
+	// }
 	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

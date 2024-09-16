@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -36,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	// "sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	certsv1 "github.com/AKI-25/certaur/api/v1"
 )
@@ -53,8 +54,6 @@ type CertificateReconciler struct {
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.Log
-
-	l.Info(req.String())
 
 	// Fetch the Certificate instance
 	var cert certsv1.Certificate
@@ -76,10 +75,23 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
-		l.Info("Secret not found, generating new certificate", "SecretName", secretName)
+		// check if the certificate has owned a secret and delete if found
+		err := findAndDeletePreviousSecrets(ctx, r, &cert)
+		if err != nil {
+			l.Error(err, "failed to find and delete previous secrets")
+			return ctrl.Result{}, err
+		}
 
+		l.Info("Secret not found, creating new secret", "SecretName", secretName)
+
+		// Generate TLS certificate
+		crtPEM, keyPEM, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
+		if err != nil {
+			l.Error(err, "failed to generate TLS certificate")
+			return ctrl.Result{}, err
+		}
 		// Create a new secret
-		err = createSecret(req, r, ctx, &cert, secretName)
+		err = createSecret(req, r, ctx, &cert, secretName, crtPEM, keyPEM)
 		if err != nil {
 			l.Error(err, "failed to create secret")
 			return ctrl.Result{}, err
@@ -91,35 +103,176 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		l.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
 	}
-
-	// check if the secret is owned by the Certificate
-
-	if !isOwnerReference(&cert, secret) {
-		l.Error(errors.New("secret error"), "Referenced secret is not owned by the Certificate")
-		return ctrl.Result{}, nil
-	}
-
-	// Generate TLS certificate
-	certPEM, keyPEM, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
+	ok, err := checkSecretIntegrity(&cert, secret)
 	if err != nil {
-		l.Error(err, "failed to generate TLS certificate")
+		l.Error(err, "unable to check secret's integrity")
 		return ctrl.Result{}, err
 	}
-
-	// if the secret is available
-	// Update the secret with the latest certificate and key
-	err = updateSecret(r, ctx, secret, keyPEM, certPEM)
-	if err != nil {
-		l.Error(err, "failed to update secret")
-		return ctrl.Result{}, err
+	if !ok {
+		l.Info("Secret's integrity has been compromised, updating the secret", "SecretName", secretName)
+		err := ensureSecretIntegrity(ctx, r, &cert, secret)
+		if err != nil {
+			l.Error(err, "unable to restore secret's integrity")
+			return ctrl.Result{}, err
+		}
+	} else {
+		l.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
 	}
 
 	return ctrl.Result{}, nil
 }
 
+func ensureSecretIntegrity(ctx context.Context, r *CertificateReconciler, cert *certsv1.Certificate, secret *corev1.Secret) error {
+	// Generate TLS certificate
+	certPEM, keyPEM, err := generateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
+	if err != nil {
+		return err
+	}
+	// Update the secret with the latest certificate and key
+	err = updateSecret(r, ctx, secret, certPEM, keyPEM)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func checkSecretIntegrity(cert *certsv1.Certificate, secret *corev1.Secret) (bool, error) {
+	// Extract the tls.crt field from the secret
+	certData, exists := secret.Data["tls.crt"]
+	if !exists {
+		return false, errors.New("secret does not contain tls.crt field")
+	}
+
+	// Decode and parse the certificate
+	block, _ := pem.Decode(certData)
+	if block == nil {
+		return false, errors.New("failed to decode PEM block containing the certificate")
+	}
+
+	parsedCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	// Check if the Common Name matches the dnsName field in the Certificate CR
+	if err := parsedCert.VerifyHostname(cert.Spec.DnsName); err != nil {
+		return false, nil
+	}
+
+	// Check if the certificate expiration date matches the validity field in the Certificate CR
+	ok, err := checkCertValidity(parsedCert.NotBefore, parsedCert.NotAfter, cert.Spec.Validity)
+	if err != nil {
+		return false, err
+	} else if !ok {
+		return ok, err
+	}
+
+	keyData, exists := secret.Data["tls.key"]
+	if !exists {
+		return false, errors.New("secret does not contain tls.key field")
+	}
+
+	block, _ = pem.Decode(keyData)
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return false, fmt.Errorf("failed to parse private key PEM")
+	}
+
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return false, fmt.Errorf("failed to parse private key: %v", err)
+	}
+
+	ok, err = checkCertKey(parsedCert, privateKey)
+	if err != nil {
+		return false, err
+	} else if !ok {
+		return ok, err
+	}
+
+	return ok, nil
+}
+
+func checkCertKey(cert *x509.Certificate, privKey *rsa.PrivateKey) (bool, error) {
+	pubKey, ok := cert.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return false, fmt.Errorf("certificate does not contain an RSA public key")
+	}
+
+	// Compare the modulus of both keys
+	return pubKey.N.Cmp(privKey.N) == 0, nil
+}
+
+func checkCertValidity(notBefore, notAfter time.Time, validity string) (bool, error) {
+	// Calculate the expected expiration date based on the CR's validity field
+	daysStr := strings.TrimSuffix(validity, "d")
+	validityDays, err := strconv.Atoi(daysStr)
+	if err != nil {
+		return false, fmt.Errorf("invalid validity format in CR: %v", err)
+	}
+
+	expectedExpiration := notBefore.Add(time.Duration(validityDays) * 24 * time.Hour)
+
+	// Check if the certificate's expiration date matches the expected expiration date
+	if !notAfter.Equal(expectedExpiration) {
+		return false, nil
+	}
+	return true, nil
+
+}
+
+func findAndDeletePreviousSecrets(ctx context.Context, r *CertificateReconciler, cert *certsv1.Certificate) error {
+	ownedSecrets, err := checkOwnership(ctx, r, cert)
+	if err != nil {
+		return err
+	}
+
+	if len(ownedSecrets.Items) != 0 {
+		fmt.Println("owned secrets", "Names", displaySecrets(&ownedSecrets))
+		fmt.Println("Certificate already owns a secret")
+		// delete previously owned secrets
+		err := deleteSecrets(ctx, r, &ownedSecrets)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func displaySecrets(secretList *corev1.SecretList) []string {
+	var secretNames []string
+	for _, secret := range secretList.Items {
+		secretNames = append(secretNames, secret.Name)
+	}
+	return secretNames
+}
+
+func deleteSecrets(ctx context.Context, r *CertificateReconciler, secretList *corev1.SecretList) error {
+	for _, secret := range secretList.Items {
+		err := r.Delete(ctx, &secret, &client.DeleteOptions{})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkOwnership(ctx context.Context, r *CertificateReconciler, cert *certsv1.Certificate) (corev1.SecretList, error) {
+	var secretList, ownedSecrets corev1.SecretList
+	err := r.List(ctx, &secretList)
+	if err != nil {
+		return corev1.SecretList{}, err
+	}
+	for _, s := range secretList.Items {
+		if isOwnerReference(cert, &s) && s.Name != cert.Spec.SecretRef.Name {
+			ownedSecrets.Items = append(ownedSecrets.Items, s)
+		}
+	}
+	return ownedSecrets, nil
+}
+
 // update already available secret
 
-func updateSecret(r *CertificateReconciler, ctx context.Context, secret *corev1.Secret, key, cert []byte) error {
+func updateSecret(r *CertificateReconciler, ctx context.Context, secret *corev1.Secret, cert, key []byte) error {
 	secret.Data["tls.crt"] = cert
 	secret.Data["tls.key"] = key
 
@@ -173,7 +326,7 @@ func extractDaysOfValidity(val string) (int, error) {
 }
 
 // create a secret for certificate and key storage
-func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, cert *certsv1.Certificate, secretName string) error {
+func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Context, cert *certsv1.Certificate, secretName string, crt, key []byte) error {
 	secret := &corev1.Secret{
 		ObjectMeta: ctrl.ObjectMeta{
 			Name:      secretName,
@@ -183,8 +336,8 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 			},
 		},
 		Data: map[string][]byte{
-			"tls.crt": {},
-			"tls.key": {},
+			"tls.crt": crt,
+			"tls.key": key,
 		},
 		Type: corev1.SecretTypeTLS,
 	}
@@ -199,11 +352,11 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred := predicate.GenerationChangedPredicate{}
+	// pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certsv1.Certificate{}).
 		Owns(&corev1.Secret{}).
-		WithEventFilter(pred).
+		// WithEventFilter(pred).
 		Complete(r)
 }
 
