@@ -4,9 +4,9 @@ metadata:
   labels:
     app.kubernetes.io/name: centaur
     app.kubernetes.io/managed-by: kustomize
-  name: certificate
+  name: certificate-test
 spec:
-  dnsName: example
+  dnsName: example.k8s.io
   validity: 360d
   secretRef:
-    name: my-certificate
+    name: my-certificate-secret

@@ -37,7 +37,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	// "sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	certsv1 "github.com/AKI-25/certaur/api/v1"
 )
@@ -54,8 +54,6 @@ type CertificateReconciler struct {
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	l := log.Log
-
-	l.Info(req.String())
 
 	// Fetch the Certificate instance
 	var cert certsv1.Certificate
@@ -117,8 +115,10 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 			l.Error(err, "unable to restore secret's integrity")
 			return ctrl.Result{}, err
 		}
+	} else {
+		l.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
 	}
-	l.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
+	
 
 	return ctrl.Result{}, nil
 }
@@ -353,11 +353,11 @@ func createSecret(req ctrl.Request, r *CertificateReconciler, ctx context.Contex
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	pred := predicate.GenerationChangedPredicate{}
+	// pred := predicate.GenerationChangedPredicate{}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&certsv1.Certificate{}).
 		Owns(&corev1.Secret{}).
-		WithEventFilter(pred).
+		// WithEventFilter(pred).
 		Complete(r)
 }
 
