@@ -123,7 +123,8 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}:$(VERSION)
 	$(KUSTOMIZE) build config/default > dist/certaur-$(VERSION).yaml
 
-nstall CRDs into the K8s cluster specified in ~/.kube/config.
+.PHONY: install 
+install: install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | $(KUBECTL) apply -f -
 
 .PHONY: uninstall

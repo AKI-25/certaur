@@ -118,7 +118,6 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	} else {
 		l.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
 	}
-	
 
 	return ctrl.Result{}, nil
 }
