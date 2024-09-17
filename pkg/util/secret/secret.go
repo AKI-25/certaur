@@ -5,13 +5,12 @@ import (
 	"fmt"
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
+	"github.com/AKI-25/certaur/pkg/util/certificate"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"github.com/AKI-25/certaur/pkg/util/certificate"
 )
-
 
 func IsOwnerReference(cert *certsv1.Certificate, secret *corev1.Secret) bool {
 	for _, owner := range secret.OwnerReferences {
@@ -114,7 +113,7 @@ func CheckSecretIntegrity(cert *certsv1.Certificate, secret *corev1.Secret) (boo
 	parsedCert, err := certificate.ExtractCertData(*secret)
 	if err != nil {
 		return false, err
-    }
+	}
 	// Check if the Common Name matches the dnsName field in the Certificate CR
 	if err := parsedCert.VerifyHostname(cert.Spec.DnsName); err != nil {
 		return false, nil
@@ -129,9 +128,9 @@ func CheckSecretIntegrity(cert *certsv1.Certificate, secret *corev1.Secret) (boo
 	}
 
 	privateKey, err := certificate.ExtractKeyData(*secret)
-	if err!= nil {
-        return false, err
-    }
+	if err != nil {
+		return false, err
+	}
 
 	ok, err = certificate.CheckCertKey(&parsedCert, &privateKey)
 	if err != nil {

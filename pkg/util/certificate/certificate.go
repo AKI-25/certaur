@@ -5,12 +5,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
 	"time"
-	"errors"
 
 	corev1 "k8s.io/api/core/v1"
 )
@@ -90,24 +90,24 @@ func CheckCertKey(cert *x509.Certificate, privKey *rsa.PrivateKey) (bool, error)
 }
 
 func ExtractCertData(secret corev1.Secret) (x509.Certificate, error) {
-		// Extract the tls.crt field from the secret
-		certData, exists := secret.Data["tls.crt"]
-		if !exists {
-			return x509.Certificate{}, errors.New("secret does not contain tls.crt field")
-		}
-	
-		// Decode and parse the certificate
-		block, _ := pem.Decode(certData)
-		if block == nil {
-			return x509.Certificate{}, errors.New("failed to decode PEM block containing the certificate")
-		}
-	
-		parsedCert, err := x509.ParseCertificate(block.Bytes)
-		if err != nil {
-			return x509.Certificate{}, fmt.Errorf("failed to parse certificate: %v", err)
-		}
+	// Extract the tls.crt field from the secret
+	certData, exists := secret.Data["tls.crt"]
+	if !exists {
+		return x509.Certificate{}, errors.New("secret does not contain tls.crt field")
+	}
 
-		return *parsedCert, nil
+	// Decode and parse the certificate
+	block, _ := pem.Decode(certData)
+	if block == nil {
+		return x509.Certificate{}, errors.New("failed to decode PEM block containing the certificate")
+	}
+
+	parsedCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return x509.Certificate{}, fmt.Errorf("failed to parse certificate: %v", err)
+	}
+
+	return *parsedCert, nil
 }
 
 func ExtractKeyData(secret corev1.Secret) (rsa.PrivateKey, error) {

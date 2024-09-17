@@ -20,7 +20,7 @@ type SecretReference struct {
 }
 
 // CertificateStatus defines the observed state of Certificate
-type CertificateStatus struct {}
+type CertificateStatus struct{}
 
 // Certificate is the Schema for the certificates API
 type Certificate struct {
