@@ -22,6 +22,12 @@ type SecretReference struct {
 // CertificateStatus defines the observed state of Certificate
 type CertificateStatus struct{}
 
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Domain",type=string,JSONPath=`.spec.dnsName`,description="Domain Name registered in the certificate"
+// +kubebuilder:printcolumn:name="Secret",type=string,JSONPath=`.spec.secretRef.name`,description="Name of the secret associated with the certificate"
+// +kubebuilder:printcolumn:name="Validity",type=string,JSONPath=`.spec.validity`,description="Duration of the validity of the certificate"
+
 // Certificate is the Schema for the certificates API
 type Certificate struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -30,6 +36,8 @@ type Certificate struct {
 	Spec   CertificateSpec   `json:"spec,omitempty"`
 	Status CertificateStatus `json:"status,omitempty"`
 }
+
+// +kubebuilder:object:root=true
 
 // CertificateList contains a list of Certificate
 type CertificateList struct {
