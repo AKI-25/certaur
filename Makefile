@@ -48,7 +48,7 @@ help: ## Display this help.
 
 .PHONY: manifests
 manifests: ## Generate WebhookConfiguration, ClusterRole and CustomResourceDefinition objects.
-	controller-gen crd webhook paths="./pkg/api/v1" output:crd:artifacts:config=pkg/crd
+	controller-gen crd paths="./pkg/..." output:crd:artifacts:config=pkg/crd
 
 .PHONY: generate
 generate: ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
