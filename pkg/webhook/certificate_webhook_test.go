@@ -1,4 +1,4 @@
-package v1
+package webhook
 
 import (
 	. "github.com/onsi/ginkgo/v2"

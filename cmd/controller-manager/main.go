@@ -19,6 +19,7 @@ import (
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
 	"github.com/AKI-25/certaur/pkg/controllers/certificate"
+	certificate_webhook "github.com/AKI-25/certaur/pkg/webhook"
 )
 
 var (
@@ -101,7 +102,7 @@ func main() {
 		os.Exit(1)
 	}
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (&certsv1.Certificate{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (certificate_webhook.Validator{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Certificate")
 			os.Exit(1)
 		}

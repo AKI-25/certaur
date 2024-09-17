@@ -1,4 +1,4 @@
-package v1
+package webhook
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -20,7 +21,7 @@ import (
 
 // Context for making API requests
 
-type validator struct {
+type Validator struct {
 	client client.Client
 	scheme *runtime.Scheme
 }
@@ -34,27 +35,27 @@ var (
 var certificatelog = logf.Log.WithName("certificate-resource")
 
 // SetupWebhookWithManager will setup the manager to manage the webhooks
-func (r *Certificate) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (v Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 	// instanciate a Validator
-	certificateValidator := &validator{
+	certificateValidator := &Validator{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
 	}
 
 	// register the webhook with the manager.
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(r).
+		For(&certsv1.Certificate{}).
 		WithValidator(certificateValidator).
 		WithDefaulter(certificateValidator).
 		Complete()
 }
 
-var _ admission.CustomDefaulter = &validator{}
+var _ admission.CustomDefaulter = &Validator{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (v *validator) Default(ctx context.Context, obj runtime.Object) error {
-	cert, ok := obj.(*Certificate)
+func (v *Validator) Default(ctx context.Context, obj runtime.Object) error {
+	cert, ok := obj.(*certsv1.Certificate)
 	if !ok {
 		return fmt.Errorf("unexpected type: %T", obj)
 	}
@@ -67,13 +68,13 @@ func (v *validator) Default(ctx context.Context, obj runtime.Object) error {
 	return nil
 }
 
-func (v *validator) defaultValidity(cert *Certificate) {
+func (v *Validator) defaultValidity(cert *certsv1.Certificate) {
 	if cert.Spec.Validity == "" {
 		cert.Spec.Validity = "365d"
 	}
 }
 
-func (v *validator) defaultSecretName(cert *Certificate) {
+func (v *Validator) defaultSecretName(cert *certsv1.Certificate) {
 	if cert.Spec.SecretRef.Name == "" {
 		cert.Spec.SecretRef.Name = fmt.Sprintf("%s-secret", cert.Name)
 	}
@@ -81,25 +82,25 @@ func (v *validator) defaultSecretName(cert *Certificate) {
 
 // implement a custom validator
 
-var _ admission.CustomValidator = &validator{}
+var _ admission.CustomValidator = &Validator{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (v *validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateCreate(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	var allErrs []string
 
-	cert, ok := obj.(*Certificate)
+	cert, ok := obj.(*certsv1.Certificate)
 	if !ok {
 		allErrs = append(allErrs, fmt.Sprintf("unexpected type: %T", obj))
 	}
 	certificatelog.Info("validate create", "name", cert.Name)
 
-	if err := cert.validateDNSName(); err != nil {
+	if err := validateDNSName(cert); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
-	if err := cert.validateValidity(); err != nil {
+	if err := validateValidity(cert); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
-	if err := cert.validateSecretName(v.client); err != nil {
+	if err := validateSecretName(v.client, cert); err != nil {
 		allErrs = append(allErrs, err.Error())
 	}
 
@@ -110,8 +111,8 @@ func (v *validator) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (v *validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	cert, ok := newObj.(*Certificate)
+func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	cert, ok := newObj.(*certsv1.Certificate)
 	if !ok {
 		return []string{
 			fmt.Sprintf("unexpected type: %T", newObj),
@@ -125,11 +126,11 @@ func (v *validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (v *validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
+func (v *Validator) ValidateDelete(ctx context.Context, obj runtime.Object) (admission.Warnings, error) {
 	return nil, nil
 }
 
-func (c *Certificate) validateDNSName() error {
+func validateDNSName(c *certsv1.Certificate) error {
 	match, _ := regexp.MatchString(dnsNameRegex, c.Spec.DnsName)
 	if !match {
 		return field.Invalid(field.NewPath("spec").Child("dnsName"), c.Spec.DnsName, "invalid DNS name")
@@ -138,7 +139,7 @@ func (c *Certificate) validateDNSName() error {
 }
 
 // checks that validity is in the correct format and range.
-func (c *Certificate) validateValidity() error {
+func validateValidity(c *certsv1.Certificate) error {
 	match, _ := regexp.MatchString(validityRegex, c.Spec.Validity)
 	if !match {
 		return errors.New("invalid format, must be a positive integer followed by 'd'")
@@ -154,7 +155,7 @@ func (c *Certificate) validateValidity() error {
 	return nil
 }
 
-func (c *Certificate) validateSecretName(client client.Client) error {
+func validateSecretName(client client.Client, c *certsv1.Certificate) error {
 	ctx := context.Background()
 
 	// check if the secret already exists
