@@ -4,8 +4,8 @@ import (
 	"context"
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
-	certificate_util "github.com/AKI-25/certaur/pkg/util/certificate"
-	secret_util "github.com/AKI-25/certaur/pkg/util/secret"
+	certificateutil "github.com/AKI-25/certaur/pkg/util/certificate"
+	secretutil "github.com/AKI-25/certaur/pkg/util/secret"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,7 +45,7 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
 		// check if the certificate has owned a secret and delete if found
-		err := secret_util.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
+		err := secretutil.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
 		if err != nil {
 			l.Error(err, "failed to find and delete previous secrets")
 			return ctrl.Result{}, err
@@ -54,14 +54,14 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		l.Info("Secret not found, creating new secret", "SecretName", secretName)
 
 		// Generate TLS certificate
-		crtPEM, keyPEM, err := certificate_util.GenerateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
+		crtPEM, keyPEM, err := certificateutil.GenerateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
 		if err != nil {
 			l.Error(err, "failed to generate TLS certificate")
 			return ctrl.Result{}, err
 		}
 
 		// Create a new secret
-		err = secret_util.CreateSecret(req, r.Client, ctx, &cert, secretName, crtPEM, keyPEM)
+		err = secretutil.CreateSecret(req, r.Client, ctx, &cert, secretName, crtPEM, keyPEM)
 		if err != nil {
 			l.Error(err, "failed to create secret")
 			return ctrl.Result{}, err
@@ -73,14 +73,14 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		l.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
 	}
-	ok, err := secret_util.CheckSecretIntegrity(&cert, secret)
+	ok, err := secretutil.CheckSecretIntegrity(&cert, secret)
 	if err != nil {
 		l.Error(err, "unable to check secret's integrity")
 		return ctrl.Result{}, err
 	}
 	if !ok {
 		l.Info("Secret's integrity has been compromised, updating the secret", "SecretName", secretName)
-		err := secret_util.EnsureSecretIntegrity(ctx, r.Client, &cert, secret)
+		err := secretutil.EnsureSecretIntegrity(ctx, r.Client, &cert, secret)
 		if err != nil {
 			l.Error(err, "unable to restore secret's integrity")
 			return ctrl.Result{}, err
