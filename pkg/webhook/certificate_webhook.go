@@ -34,6 +34,8 @@ var (
 // log is for logging in this package.
 var certificatelog = logf.Log.WithName("certificate-resource")
 
+// +kubebuilder:webhook:path=/mutate-certs-k8c-io-v1-certificate,mutating=true,failurePolicy=fail,sideEffects=None,groups=certs.k8c.io,resources=certificates,verbs=create;update,versions=v1,name=mcertificate.kb.io,admissionReviewVersions=v1
+
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func (v Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
@@ -52,6 +54,8 @@ func (v Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 }
 
 var _ admission.CustomDefaulter = &Validator{}
+
+// +kubebuilder:webhook:path=/validate-certs-k8c-io-v1-certificate,mutating=false,failurePolicy=fail,sideEffects=None,groups=certs.k8c.io,resources=certificates,verbs=create;update,versions=v1,name=vcertificate.kb.io,admissionReviewVersions=v1
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (v *Validator) Default(ctx context.Context, obj runtime.Object) error {
