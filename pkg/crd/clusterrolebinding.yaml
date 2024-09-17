@@ -1,0 +1,29 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: certaur
+  name: certaur-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: certaur-manager-role
+subjects:
+- kind: ServiceAccount
+  name: certaur-controller-manager
+  namespace: certaur-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: certaur-metrics-auth-rolebinding
+  labels:
+    app: certaur
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: certaur-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: certaur-controller-manager
+  namespace: certaur-system
