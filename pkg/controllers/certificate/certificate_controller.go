@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
 	certificateutil "github.com/AKI-25/certaur/pkg/util/certificate"
@@ -66,11 +67,11 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// Create a new secret
 		err = secretutil.CreateSecret(req, r.Client, ctx, &cert, secretName, crtPEM, keyPEM)
 		if err != nil {
-			r.Logger.Error(err, "failed to create secret")
+			r.RecordAndLogError(&cert, "SecretCreationFailed", fmt.Sprintf("Failed to create Secret %s: %v", cert.Spec.SecretRef.Name, err), err)
 			return ctrl.Result{}, err
 		}
 
-		r.Logger.Info("Successfully created secret", "SecretName", secretName)
+		r.RecordAndLogInfo(&cert, "SecretCreationSuccessful", fmt.Sprintf("Successfully created Secret %s", cert.Spec.SecretRef.Name))
 		return ctrl.Result{}, nil
 	} else if err != nil {
 		r.Logger.Error(err, "unable to fetch Secret")
@@ -82,13 +83,14 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		return ctrl.Result{}, err
 	}
 	if !ok {
-		r.Logger.Info("Secret's integrity has been compromised, updating the secret", "SecretName", secretName)
+		r.RecordAndLogInfo(&cert, "SecretIntegrityCheckFailed", fmt.Sprintf("Secret's integrity has been compromised: Secret %s", cert.Spec.SecretRef.Name))
 		err := secretutil.EnsureSecretIntegrity(ctx, r.Client, &cert, secret)
 		if err != nil {
 			r.Logger.Error(err, "unable to restore secret's integrity")
 			return ctrl.Result{}, err
 		}
 	} else {
+		r.RecordAndLogInfo(&cert, "CertificateValid", fmt.Sprintf("Certificate %s and its corresponding secret %s are valid", cert.Name, secretName))
 		r.Logger.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
 	}
 
@@ -101,4 +103,14 @@ func (r *CertificateReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&certsv1.Certificate{}).
 		Owns(&corev1.Secret{}).
 		Complete(r)
+}
+
+func (r *CertificateReconciler) RecordAndLogInfo(cert *certsv1.Certificate, message, reason string) {
+	r.Logger.Info(message, "Reason", reason)
+	r.Recorder.Event(cert, corev1.EventTypeNormal, message, reason)
+}
+
+func (r *CertificateReconciler) RecordAndLogError(cert *certsv1.Certificate, message, reason string, err error) {
+	r.Logger.Error(err, message)
+	r.Recorder.Event(cert, corev1.EventTypeWarning, message, reason)
 }
