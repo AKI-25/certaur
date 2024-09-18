@@ -97,6 +97,8 @@ func main() {
 	if err = (&controller.CertificateReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Logger: mgr.GetLogger(),
+		Recorder: mgr.GetEventRecorderFor("certaur-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)

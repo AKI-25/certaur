@@ -6,10 +6,12 @@ import (
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
 	certificateutil "github.com/AKI-25/certaur/pkg/util/certificate"
 	secretutil "github.com/AKI-25/certaur/pkg/util/secret"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -19,6 +21,8 @@ import (
 type CertificateReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	Logger logr.Logger
+	Recorder record.EventRecorder
 }
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
