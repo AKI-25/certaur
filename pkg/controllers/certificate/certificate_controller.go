@@ -44,7 +44,9 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
-		// check if the certificate has owned a secret and delete if found
+		// clean up orphaned Kubernetes secrets that are still owned by a Certificate Custom Resource (CR) 
+		// but are no longer actively associated with it, 
+		// likely due to an interruption during the reconciliation process.
 		err := secretutil.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
 		if err != nil {
 			l.Error(err, "failed to find and delete previous secrets")
