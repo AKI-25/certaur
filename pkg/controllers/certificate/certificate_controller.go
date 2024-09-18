@@ -14,7 +14,6 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CertificateReconciler reconciles a Certificate object
@@ -26,16 +25,14 @@ type CertificateReconciler struct {
 }
 
 func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := log.Log
-
 	// Fetch the Certificate instance
 	var cert certsv1.Certificate
 	if err := r.Get(ctx, req.NamespacedName, &cert); err != nil {
 		if apierrors.IsNotFound(err) {
-			l.Info("Certificate resource not found. Ignoring since object must be deleted.")
+			r.Logger.Info("Certificate resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
-		l.Error(err, "Failed to get Certificate")
+		r.Logger.Error(err, "Failed to get Certificate")
 		return ctrl.Result{}, err
 	}
 
@@ -53,46 +50,46 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		// likely due to an interruption during the reconciliation process.
 		err := secretutil.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
 		if err != nil {
-			l.Error(err, "failed to find and delete previous secrets")
+			r.Logger.Error(err, "failed to find and delete previous secrets")
 			return ctrl.Result{}, err
 		}
 
-		l.Info("Secret not found, creating new secret", "SecretName", secretName)
+		r.Logger.Info("Secret not found, creating new secret", "SecretName", secretName)
 
 		// Generate TLS certificate
 		crtPEM, keyPEM, err := certificateutil.GenerateTLSCertificate(cert.Spec.DnsName, cert.Spec.Validity)
 		if err != nil {
-			l.Error(err, "failed to generate TLS certificate")
+			r.Logger.Error(err, "failed to generate TLS certificate")
 			return ctrl.Result{}, err
 		}
 
 		// Create a new secret
 		err = secretutil.CreateSecret(req, r.Client, ctx, &cert, secretName, crtPEM, keyPEM)
 		if err != nil {
-			l.Error(err, "failed to create secret")
+			r.Logger.Error(err, "failed to create secret")
 			return ctrl.Result{}, err
 		}
 
-		l.Info("Successfully created secret", "SecretName", secretName)
+		r.Logger.Info("Successfully created secret", "SecretName", secretName)
 		return ctrl.Result{}, nil
 	} else if err != nil {
-		l.Error(err, "unable to fetch Secret")
+		r.Logger.Error(err, "unable to fetch Secret")
 		return ctrl.Result{}, err
 	}
 	ok, err := secretutil.CheckSecretIntegrity(&cert, secret)
 	if err != nil {
-		l.Error(err, "unable to check secret's integrity")
+		r.Logger.Error(err, "unable to check secret's integrity")
 		return ctrl.Result{}, err
 	}
 	if !ok {
-		l.Info("Secret's integrity has been compromised, updating the secret", "SecretName", secretName)
+		r.Logger.Info("Secret's integrity has been compromised, updating the secret", "SecretName", secretName)
 		err := secretutil.EnsureSecretIntegrity(ctx, r.Client, &cert, secret)
 		if err != nil {
-			l.Error(err, "unable to restore secret's integrity")
+			r.Logger.Error(err, "unable to restore secret's integrity")
 			return ctrl.Result{}, err
 		}
 	} else {
-		l.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
+		r.Logger.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
 	}
 
 	return ctrl.Result{}, nil

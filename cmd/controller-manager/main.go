@@ -15,11 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
 	"github.com/AKI-25/certaur/pkg/controllers/certificate"
-	certificate_webhook "github.com/AKI-25/certaur/pkg/webhook"
+	webhook "github.com/AKI-25/certaur/pkg/webhook"
 )
 
 var (
@@ -67,7 +65,7 @@ func main() {
 		tlsOpts = append(tlsOpts, disableHTTP2)
 	}
 
-	webhookServer := webhook.NewServer(webhook.Options{
+	webhookServer := webhook.SetupNewWebhookServer(webhook.Options{
 		TLSOpts: tlsOpts,
 	})
 
@@ -103,8 +101,9 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")
 		os.Exit(1)
 	}
+
 	if os.Getenv("ENABLE_WEBHOOKS") != "false" {
-		if err = (certificate_webhook.Validator{}).SetupWebhookWithManager(mgr); err != nil {
+		if err = (webhook.Validator{}).SetupWebhookWithManager(mgr); err != nil {
 			setupLog.Error(err, "unable to create webhook", "webhook", "Certificate")
 			os.Exit(1)
 		}

@@ -16,6 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
@@ -170,4 +171,10 @@ func validateSecretName(client client.Client, c *certsv1.Certificate) error {
 		return errors.New("secret already exists")
 	}
 	return nil
+}
+
+type Options webhook.Options
+
+func SetupNewWebhookServer(opts Options) webhook.Server {
+	return webhook.NewServer(webhook.Options(opts))
 }
