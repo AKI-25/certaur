@@ -1,0 +1,12 @@
+apiVersion: certs.k8c.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/name: centaur
+    app.kubernetes.io/managed-by: kustomize
+  name: certificate-test
+spec:
+  dnsName: example.k8s.io
+  validity: 360d
+  secretRef:
+    name: my-certificate-secret

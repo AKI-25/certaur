@@ -1,0 +1,25 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app: centaur
+  name: certaur-serving-cert
+  namespace: certaur-system
+spec:
+  dnsNames:
+  - certaur-webhook-service.certaur-system.svc
+  - certaur-webhook-service.certaur-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: certaur-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app: centaur
+  name: certaur-selfsigned-issuer
+  namespace: certaur-system
+spec:
+  selfSigned: {}
