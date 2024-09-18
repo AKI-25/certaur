@@ -1,0 +1,487 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app: certaur
+  name: certaur-system
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: certaur-system/certaur-serving-cert
+    controller-gen.kubebuilder.io/version: v0.16.1
+  name: certificates.certs.k8c.io
+spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: certaur-webhook-service
+          namespace: certaur-system
+          path: /convert
+      conversionReviewVersions:
+      - v1
+  group: certs.k8c.io
+  names:
+    kind: Certificate
+    listKind: CertificateList
+    plural: certificates
+    singular: certificate
+  scope: Namespaced
+  versions:
+  - name: v1
+    schema:
+      openAPIV3Schema:
+        description: Certificate is the Schema for the certificates API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: CertificateSpec defines the desired state of Certificate
+            properties:
+              dnsName:
+                description: DNS specifies the DNS name for the certificate
+                type: string
+              secretRef:
+                description: SecretRef refers to the secret in which the certificate
+                  is stored
+                properties:
+                  name:
+                    description: Name of the secret
+                    type: string
+                required:
+                - name
+                type: object
+              validity:
+                description: Validity specifies for how many days the certificate
+                  is valid
+                type: string
+            type: object
+          status:
+            description: CertificateStatus defines the observed state of Certificate
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app: certaur
+  name: certaur-controller-manager
+  namespace: certaur-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app: certaur
+  name: certaur-leader-election-role
+  namespace: certaur-system
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: certaur
+  name: certaur-certificate-editor-role
+rules:
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app: certaur
+  name: certaur-certificate-viewer-role
+rules:
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates/status
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: certaur-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - certs.k8c.io
+  resources:
+  - certificates/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: certaur-metrics-auth-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: certaur-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app: certaur
+  name: certaur-leader-election-rolebinding
+  namespace: certaur-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: certaur-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: certaur-controller-manager
+  namespace: certaur-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app: certaur
+  name: certaur-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: certaur-manager-role
+subjects:
+- kind: ServiceAccount
+  name: certaur-controller-manager
+  namespace: certaur-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: certaur-metrics-auth-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: certaur-metrics-auth-role
+subjects:
+- kind: ServiceAccount
+  name: certaur-controller-manager
+  namespace: certaur-system
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: certaur
+  name: certaur-controller-manager-metrics-service
+  namespace: certaur-system
+spec:
+  ports:
+  - name: https
+    port: 8443
+    protocol: TCP
+    targetPort: 8443
+  selector:
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: centaur
+  name: certaur-webhook-service
+  namespace: certaur-system
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: centaur
+  name: certaur-controller-manager
+  namespace: certaur-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+    template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        spec:
+      containers:
+      - args:
+        - --metrics-bind-address=:8443
+        - --leader-elect
+        - --health-probe-bind-address=:8081
+        command:
+        - /manager
+        image: abdelkefiismail/certaur:0.3.0
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+      securityContext:
+        runAsNonRoot: true
+      serviceAccountName: certaur-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: centaur
+    app.kubernetes.io/instance: serving-cert
+    app: certificate
+    app.kubernetes.io/part-of: centaur
+  name: certaur-serving-cert
+  namespace: certaur-system
+spec:
+  dnsNames:
+  - certaur-webhook-service.certaur-system.svc
+  - certaur-webhook-service.certaur-system.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: certaur-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app: centaur
+  name: certaur-selfsigned-issuer
+  namespace: certaur-system
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: certaur-system/certaur-serving-cert
+  labels:
+    app: centaur
+  name: certaur-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: certaur-webhook-service
+      namespace: certaur-system
+      path: /mutate-certs-k8c-io-v1-certificate
+  failurePolicy: Fail
+  name: mcertificate.kb.io
+  rules:
+  - apiGroups:
+    - certs.k8c.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - certificates
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: certaur-system/certaur-serving-cert
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: centaur
+    app.kubernetes.io/instance: validating-webhook-configuration
+    app: validatingwebhookconfiguration
+    app.kubernetes.io/part-of: centaur
+  name: certaur-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: certaur-webhook-service
+      namespace: certaur-system
+      path: /validate-certs-k8c-io-v1-certificate
+  failurePolicy: Fail
+  name: vcertificate.kb.io
+  rules:
+  - apiGroups:
+    - certs.k8c.io
+    apiVersions:
+    - v1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - certificates
+  sideEffects: None
