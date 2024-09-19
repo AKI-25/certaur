@@ -67,19 +67,3 @@ jobs:
 
       - name: Push Docker image
         run: make docker-push
-
-  build-installer:
-    name: Build Installer
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Build Installer YAML
-        run: make build-installer
-
-      - name: Upload installer YAML as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: operator-installer
-          path: ./dist/certaur-*.yaml
