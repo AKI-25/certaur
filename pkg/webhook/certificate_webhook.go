@@ -147,14 +147,14 @@ func validateDNSName(c *certsv1.Certificate) error {
 func validateValidity(c *certsv1.Certificate) error {
 	match, _ := regexp.MatchString(validityRegex, c.Spec.Validity)
 	if !match {
-		return errors.New("invalid format, must be a positive integer followed by 'd'")
+		return errors.New("invalid validity format, must be a positive integer followed by 'd'")
 	}
 
 	// Extract the integer part of validity and check the range (0 - 1825)
 	daysStr := strings.TrimSuffix(c.Spec.Validity, "d")
 	days, err := strconv.Atoi(daysStr)
 	if err != nil || days < 1 || days > 1825 {
-		return errors.New("validity must be between 1 and 1825 days")
+		return errors.New("invalid validity format, validity must be between 1 and 1825 days")
 	}
 
 	return nil
