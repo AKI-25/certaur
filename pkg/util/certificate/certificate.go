@@ -128,3 +128,22 @@ func ExtractKeyData(secret corev1.Secret) (rsa.PrivateKey, error) {
 
 	return *privateKey, nil
 }
+
+func GeneratePrivateKeyPEM() ([]byte, error) {
+	// Generate a new RSA private key
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate private key: %w", err)
+	}
+
+	// Marshal the private key into PKCS#1 ASN.1 DER format
+	privateKeyDER := x509.MarshalPKCS1PrivateKey(privateKey)
+
+	// Encode the private key to PEM format
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
+		Type:  "RSA PRIVATE KEY",
+		Bytes: privateKeyDER,
+	})
+
+	return privateKeyPEM, nil
+}
