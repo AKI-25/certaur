@@ -2,21 +2,21 @@ package webhook
 
 import (
 	"context"
-	"testing"
 	"fmt"
+	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"k8s.io/apimachinery/pkg/runtime"
+	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	. "github.com/onsi/ginkgo/v2"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var (
-	testCertName = "test-cert"
+	testCertName   = "test-cert"
 	testSecretName = "test-secret"
 )
 
@@ -49,7 +49,6 @@ func TestCertificateWebhook(t *testing.T) {
 		scheme: scheme,
 	}
 
-	
 	t.Run("should default validity and secret name", func(t *testing.T) {
 		// Create a certificate without validity and secret name
 		cert := &certsv1.Certificate{
@@ -83,7 +82,7 @@ func TestCertificateWebhook(t *testing.T) {
 				Namespace: "default",
 			},
 			Spec: certsv1.CertificateSpec{
-				DnsName:  "invalid_dns_name",
+				DnsName: "invalid_dns_name",
 				SecretRef: certsv1.SecretReference{
 					Name: testSecretName,
 				},
@@ -152,10 +151,10 @@ func TestCertificateWebhook(t *testing.T) {
 	t.Run("should accept valid certificate requests", func(t *testing.T) {
 		// Create a valid certificate
 		cert := &certsv1.Certificate{
-		    ObjectMeta: metav1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Name:      testCertName,
-                Namespace: "default",
-            },
+				Namespace: "default",
+			},
 			Spec: certsv1.CertificateSpec{
 				DnsName:  "valid.example.com",
 				Validity: "365d",

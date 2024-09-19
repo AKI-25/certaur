@@ -20,8 +20,8 @@ import (
 // CertificateReconciler reconciles a Certificate object
 type CertificateReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Logger logr.Logger
+	Scheme   *runtime.Scheme
+	Logger   logr.Logger
 	Recorder record.EventRecorder
 }
 
@@ -30,7 +30,8 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	var cert certsv1.Certificate
 	if err := r.Get(ctx, req.NamespacedName, &cert); err != nil {
 		if apierrors.IsNotFound(err) {
-			r.Logger.Info("Certificate resource not found. Ignoring since object must be deleted.")
+			r.RecordAndLogInfo(&cert, "CertificateCreationFailed", "Certificate resource not found.")
+			// r.Logger.Info("Certificate resource not found. Ignoring since object must be deleted.")
 			return ctrl.Result{}, nil
 		}
 		r.Logger.Error(err, "Failed to get Certificate")
@@ -46,8 +47,8 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
-		// clean up orphaned Kubernetes secrets that are still owned by a Certificate Custom Resource (CR) 
-		// but are no longer actively associated with it, 
+		// clean up orphaned Kubernetes secrets that are still owned by a Certificate Custom Resource (CR)
+		// but are no longer actively associated with it,
 		// likely due to an interruption during the reconciliation process.
 		err := secretutil.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
 		if err != nil {
@@ -86,9 +87,12 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 		r.RecordAndLogInfo(&cert, "SecretIntegrityCheckFailed", fmt.Sprintf("Secret's integrity has been compromised: Secret %s", cert.Spec.SecretRef.Name))
 		err := secretutil.EnsureSecretIntegrity(ctx, r.Client, &cert, secret)
 		if err != nil {
-			r.Logger.Error(err, "unable to restore secret's integrity")
-			return ctrl.Result{}, err
+			r.RecordAndLogError(&cert, "SecretIntegrityRestoreFailed", "unable to restore secret's integrity", err)
+			return ctrl.Result{
+				Requeue: true,
+			}, err
 		}
+		r.RecordAndLogError(&cert, "SecretIntegrityRestored", "secret's integrity is restored", err)
 	} else {
 		r.RecordAndLogInfo(&cert, "CertificateValid", fmt.Sprintf("Certificate %s and its corresponding secret %s are valid", cert.Name, secretName))
 		r.Logger.Info("Certificate and its corresponding secret are valid", "CertificateName", cert.Name, "SecretName", secretName)
