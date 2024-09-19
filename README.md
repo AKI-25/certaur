@@ -1,114 +1,101 @@
-# certaur
-// TODO(user): Add simple overview of use/purpose
+# Certaur
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+**Certaur** is a Kubernetes operator that automates the creation and management of TLS certificates. By defining a custom resource `Certificate`, this operator generates TLS certificates and stores them in Kubernetes secrets for use with applications.
 
-## Getting Started
+## Features
+
+- Automatically generates TLS certificates based on the `Certificate` custom resource definition (CRD).
+- Stores the generated certificates securely in Kubernetes secrets.
+- Detects changes in certificates and ensures that it is up to date.
+
+## Installation
 
 ### Prerequisites
-- go version v1.22.0+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+- A running Kubernetes cluster (version 1.16+).
+- Kubernetes CLI (`kubectl`) installed and configured to communicate with the cluster.
 
-```sh
-make docker-build docker-push IMG=<some-registry>/certaur:tag
+### Deploy Certaur
+
+1. Clone the Certaur repository:
+
+   ```bash
+   git clone https://github.com/AKI-25/certaur
+   cd certaur
+   ```
+
+2. Install the Certaur CRDs and operator using `kubectl`:
+
+   ```bash
+   kubectl apply -f dist/installer.yaml
+   ```
+
+3. Verify that the Certaur operator is running:
+
+   ```bash
+   kubectl get pods -n certaur-system
+   ```
+
+   You should see the Certaur operator pod running.
+
+## Usage
+
+### Create a Certificate
+
+To create a TLS certificate, define a `Certificate` resource. Below is an example manifest:
+
+```yaml
+apiVersion: certs.k8c.io/v1
+kind: Certificate
+metadata:
+  name: certificate-test
+spec:
+  dnsName: example.k8s.io
+  validity: 360d
+  secretRef:
+    name: my-certificate-secret
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+1. Apply the certificate manifest:
 
-**Install the CRDs into the cluster:**
+   ```bash
+   kubectl apply -f certificate.yaml
+   ```
 
-```sh
-make install
+2. Once applied, Certaur will automatically generate a TLS certificate and store it in the specified secret.
+
+   You can check the secret using:
+
+   ```bash
+   kubectl get secret my-certificate-secret
+   ```
+
+### Retrieving the Certificate
+
+To retrieve the generated certificate:
+
+```bash
+kubectl get secret example-certificate-secret -o yaml
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+The secret will contain the TLS certificate and key.
 
-```sh
-make deploy IMG=<some-registry>/certaur:tag
-```
+## Custom Resource Definition (CRD)
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+Certaur introduces a custom resource `Certificate`. The primary fields in the CRD are:
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
-**UnDeploy the controller from the cluster:**
-
-```sh
-make undeploy
-```
-
-## Project Distribution
-
-Following are the steps to build the installer and distribute this project to users.
-
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/certaur:tag
-```
-
-NOTE: The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without
-its dependencies.
-
-2. Using the installer
-
-Users can just run kubectl apply -f <URL for YAML BUNDLE> to install the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/certaur/<tag or branch>/dist/install.yaml
-```
+- `dnsName`: The primary domain name for the certificate.
+- `validity`: The validity of the certificate in days.
+- `secretRef.name`: The name of the secret where the certificate and private key will be stored.
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
-
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+If you would like to contribute to Certaur, please open an issue or submit a pull request. Contributions are welcome!
 
 ## License
 
-Copyright 2024 IsmailAbdelkefi.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+## Contact
 
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+For any questions or support, feel free to open an issue on the [GitHub repository](https://github.com/AKI-25/certaur/issues).
