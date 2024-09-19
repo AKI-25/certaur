@@ -8,7 +8,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
-	"github.com/AKI-25/certaur/pkg/controllers/certificate"
+	controller "github.com/AKI-25/certaur/pkg/controllers/certificate"
 	webhook "github.com/AKI-25/certaur/pkg/webhook"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
