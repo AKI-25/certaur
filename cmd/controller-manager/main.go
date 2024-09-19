@@ -7,6 +7,9 @@ import (
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
+	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
+	"github.com/AKI-25/certaur/pkg/controllers/certificate"
+	webhook "github.com/AKI-25/certaur/pkg/webhook"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -15,9 +18,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
-	"github.com/AKI-25/certaur/pkg/controllers/certificate"
-	webhook "github.com/AKI-25/certaur/pkg/webhook"
 )
 
 var (
@@ -93,9 +93,9 @@ func main() {
 	}
 
 	if err = (&controller.CertificateReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Logger: mgr.GetLogger(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Logger:   mgr.GetLogger(),
 		Recorder: mgr.GetEventRecorderFor("certaur-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Certificate")

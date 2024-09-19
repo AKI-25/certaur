@@ -20,8 +20,8 @@ import (
 // CertificateReconciler reconciles a Certificate object
 type CertificateReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
-	Logger logr.Logger
+	Scheme   *runtime.Scheme
+	Logger   logr.Logger
 	Recorder record.EventRecorder
 }
 
@@ -46,8 +46,8 @@ func (r *CertificateReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 
 	// If secret doesn't exist, generate a new TLS certificate and create the secret
 	if apierrors.IsNotFound(err) {
-		// clean up orphaned Kubernetes secrets that are still owned by a Certificate Custom Resource (CR) 
-		// but are no longer actively associated with it, 
+		// clean up orphaned Kubernetes secrets that are still owned by a Certificate Custom Resource (CR)
+		// but are no longer actively associated with it,
 		// likely due to an interruption during the reconciliation process.
 		err := secretutil.FindAndDeletePreviousSecrets(ctx, r.Client, &cert)
 		if err != nil {
