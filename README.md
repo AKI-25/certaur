@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/AKI-25/certaur)](https://goreportcard.com/report/github.com/AKI-25/certaur)
 # Certaur
 
 **Certaur** is a Kubernetes operator that automates the creation and management of TLS certificates. By defining a custom resource `Certificate`, this operator generates TLS certificates and stores them in Kubernetes secrets for use with applications.
