@@ -90,11 +90,11 @@ uninstall: ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. C
 
 .PHONY: deploy
 deploy: ## Deploy controller to the K8s cluster specified in ~/.kube/config.
-	$(KUBECTL) apply -f dist/manifests/deployment.yaml
+	$(KUBECTL) apply -f deploy/manifests/deployment.yaml
 
 .PHONY: undeploy
 undeploy:  ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
-	$(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f dist/manifests/deployment.yaml
+	$(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f deploy/manifests/deployment.yaml
 
 .PHONY: sample-deploy
 sample-deploy: ## Deploy controller to the K8s cluster specified in ~/.kube/config.

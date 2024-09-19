@@ -27,7 +27,7 @@
 2. Install the Certaur CRDs and operator using `kubectl`:
 
    ```bash
-   kubectl apply -f dist/installer.yaml
+   kubectl apply -f deploy/installer.yaml
    ```
 
 3. Verify that the Certaur operator is running:
