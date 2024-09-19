@@ -24,7 +24,7 @@ spec:
         - --health-probe-bind-address=:8081
         command:
         - /manager
-        image: abdelkefiismail/certaur:0.3.0
+        image: abdelkefiismail/certaur:1.0.0
         livenessProbe:
           httpGet:
             path: /healthz

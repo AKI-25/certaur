@@ -40,7 +40,7 @@ var certificatelog = logf.Log.WithName("certificate-resource")
 // SetupWebhookWithManager will setup the manager to manage the webhooks
 func (v Validator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
-	// instanciate a Validator
+	// instantiate a Validator
 	certificateValidator := &Validator{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme(),
@@ -126,8 +126,7 @@ func (v *Validator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 
 	certificatelog.Info("validate update", "name", cert.Name)
 
-	v.ValidateCreate(ctx, newObj)
-	return nil, nil
+	return v.ValidateCreate(ctx, newObj)
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
