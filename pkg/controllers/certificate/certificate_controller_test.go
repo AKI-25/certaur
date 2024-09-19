@@ -10,7 +10,6 @@ import (
 	secretutil "github.com/AKI-25/certaur/pkg/util/secret"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -19,63 +18,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+var ctx context.Context
 
 var (
 	testCertName   = "test-cert"
 	testSecretName = "test-secret"
 )
-
-var _ = Describe("Certificate Controller", func() {
-	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
-
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default",
-		}
-		certificate := &certsv1.Certificate{}
-
-		BeforeEach(func() {
-			By("creating the custom resource for the Kind Certificate")
-			err := k8sClient.Get(ctx, typeNamespacedName, certificate)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &certsv1.Certificate{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
-			}
-		})
-
-		AfterEach(func() {
-			resource := &certsv1.Certificate{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance Certificate")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
-		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &CertificateReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
-			}
-
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-		})
-	})
-})
 
 func TestCertificateController(t *testing.T) {
 	// Set up the reconciler

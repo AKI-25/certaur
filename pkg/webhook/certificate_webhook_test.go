@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	certsv1 "github.com/AKI-25/certaur/pkg/api/v1"
-	. "github.com/onsi/ginkgo/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -19,20 +18,6 @@ var (
 	testCertName   = "test-cert"
 	testSecretName = "test-secret"
 )
-
-var _ = Describe("Certificate Webhook", func() {
-
-	Context("When creating Certificate under Defaulting Webhook", func() {
-		It("Should fill in the default value if a required field is empty", func() {})
-	})
-
-	Context("When creating Certificate under Validating Webhook", func() {
-		It("Should deny if a required field is empty", func() {})
-
-		It("Should admit if all required fields are provided", func() {})
-	})
-
-})
 
 func TestCertificateWebhook(t *testing.T) {
 	ctx := context.TODO()
